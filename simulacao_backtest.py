@@ -10,10 +10,16 @@ def executar_backtest(rodadas=3, use_ai=False):
     acertos = 0
     total = 0
     
-    for _, match in df_recent.iterrows():
+    for idx, match in df_recent.iterrows():
         fixture = {'Home': match['HomeTeam'], 'Away': match['AwayTeam']}
         recoms, ai_info = engine.gerar_recomendacoes(fixture, use_ai=use_ai)
         
+        # Calcular Rodada (Estimativa: 10 jogos por rodada)
+        # Total de jogos no EPL = 380. 
+        total_games = len(engine.df)
+        rodada = ((idx) // 10) + 1
+        data_jogo = match['Date'].strftime('%d/%m/%Y') if hasattr(match['Date'], 'strftime') else str(match['Date'])
+
         res_real = "1" if match['FTHG'] > match['FTAG'] else ("2" if match['FTAG'] > match['FTHG'] else "X")
         btts_real = match['FTHG'] > 0 and match['FTAG'] > 0
         over25_real = (match['FTHG'] + match['FTAG']) > 2.5
@@ -30,6 +36,8 @@ def executar_backtest(rodadas=3, use_ai=False):
             elif "1X" in rec['mercado'] and (res_real == "1" or res_real == "X"): ganhou = True
             
             resultados.append({
+                'Rodada': int(rodada),
+                'Data': data_jogo,
                 'Jogo': f"{match['HomeTeam']} vs {match['AwayTeam']}",
                 'Aposta': rec['mercado'],
                 'Confiança': f"{rec['confianca']:.1%}",

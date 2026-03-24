@@ -11,6 +11,20 @@ class EngineAprendizagem:
         self.df['Date'] = pd.to_datetime(self.df['Date'], dayfirst=True)
         self.ai = AIService()
         
+        # Normalização de nomes (Mapeamento de variações comuns)
+        self.team_map = {
+            "Arsenal FC": "Arsenal",
+            "Chelsea FC": "Chelsea",
+            "Manchester City FC": "Man City",
+            "Man City": "Man City",
+            "Manchester United FC": "Man United",
+            "Man United": "Man United",
+            "Tottenham Hotspur FC": "Tottenham",
+            "Newcastle United FC": "Newcastle",
+            "Aston Villa FC": "Aston Villa",
+            "Liverpool FC": "Liverpool"
+        }
+        
         # Carregar Ratings (ELO/Força) do DB
         self.ratings = self.db.carregar_ratings()
         
@@ -39,11 +53,16 @@ class EngineAprendizagem:
         self.media_gols_away = self.df['FTAG'].mean()
 
     def _get_team_stats(self, team):
+        # Aplica normalização técnica
+        team = self.team_map.get(team, team)
         # Retorna estatísticas base ou defaults se o time não existir no CSV
         default = {'ataque_home': 1.0, 'defesa_home': 1.2, 'ataque_away': 0.8, 'defesa_away': 1.5}
         return self.team_stats.get(team, default)
 
     def calcular_probabilidade(self, casa, fora, fadiga_casa=False, fadiga_fora=False):
+        casa = self.team_map.get(casa, casa)
+        fora = self.team_map.get(fora, fora)
+        
         # Combina o Rating (Aprendizagem) com Poisson (Estatística)
         rating_casa = self.ratings.get(casa, 1.0)
         rating_fora = self.ratings.get(fora, 1.0)
@@ -119,10 +138,12 @@ class EngineAprendizagem:
             p_home = min(0.99, max(0.01, p_home + adj))
         
         recoms = []
-        if p_home > 0.65: recoms.append({'mercado': 'Vencedor: ' + casa, 'confianca': p_home, 'tipo': 'Principal'})
-        elif p_home < 0.30: recoms.append({'mercado': 'Vencedor: ' + fora, 'confianca': 1-p_home, 'tipo': 'Principal'})
+        # Limiar mais rigido para Vencedor (Principal)
+        # Só recomenda se a probabilidade for alta E houver vantagem clara
+        if p_home > 0.68: recoms.append({'mercado': 'Vencedor: ' + casa, 'confianca': p_home, 'tipo': 'Principal'})
+        elif p_home < 0.28: recoms.append({'mercado': 'Vencedor: ' + fora, 'confianca': 1-p_home, 'tipo': 'Principal'})
         
         if p_btts > 0.66: recoms.append({'mercado': 'Ambas Marcam: Sim', 'confianca': p_btts, 'tipo': 'Golos'})
-        if p_over > 0.65: recoms.append({'mercado': 'Over 2.5 Gols', 'confianca': p_over, 'tipo': 'Golos'})
+        if p_over > 0.68: recoms.append({'mercado': 'Over 2.5 Gols', 'confianca': p_over, 'tipo': 'Golos'})
         
         return recoms, ai_insight
