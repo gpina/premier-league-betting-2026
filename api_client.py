@@ -22,7 +22,9 @@ class FootballDataClient:
             'AC': 'cantos_fora',
             'B365H': 'odd_casa',
             'B365D': 'odd_empate',
-            'B365A': 'odd_fora'
+            'B365A': 'odd_fora',
+            'B365>2.5': 'odd_over_25',
+            'B365<2.5': 'odd_under_25'
         }
 
     def carregar_resultados_recentes(self):

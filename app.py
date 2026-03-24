@@ -96,6 +96,26 @@ with tab1:
             db.salvar_previsao_pendente(jogo_sel['data'], time_casa, time_fora, prob_ia, odd_mercado, ev, valor_aposta)
             st.toast("Previsão guardada com sucesso!")
 
+    st.markdown("---")
+    st.subheader("📈 Mercados Adicionais (Golos)")
+    col_goal1, col_goal2 = st.columns(2)
+    
+    p_over, p_btts = engine.calcular_mercados_adicionais(time_casa, time_fora, fadiga_casa, fadiga_fora)
+    
+    with col_goal1:
+        st.write("**Over 2.5 Golos**")
+        odd_over = st.number_input("Odd Over 2.5", value=1.90, step=0.01)
+        ev_over = engine.get_ev(p_over, odd_over)
+        st.metric("Probabilidade Over 2.5", f"{p_over:.1%}", delta=f"{ev_over:.2%}")
+        if ev_over > 0.05: st.success("🔥 Valor p/ Over 2.5!")
+
+    with col_goal2:
+        st.write("**Ambas Marcam (BTTS)**")
+        odd_btts = st.number_input("Odd BTTS Sim", value=1.80, step=0.01)
+        ev_btts = engine.get_ev(p_btts, odd_btts)
+        st.metric("Probabilidade BTTS", f"{p_btts:.1%}", delta=f"{ev_btts:.2%}")
+        if ev_btts > 0.05: st.success("⚽ Valor p/ Ambas Marcam!")
+
     with col_context:
         st.write("📋 **Relatório Tático (NotebookLM)**")
         if fadiga_casa or fadiga_fora:
