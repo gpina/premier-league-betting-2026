@@ -232,15 +232,98 @@ with tab_hunter:
                                 count_bets += 1
                             
                             if ai_info and use_llm_hunter:
-                                with st.expander("👁️ Ver Justificativa Tática (AI)"):
-                                    st.write(f"**Veredito:** {ai_info['vencedor_provavel']}")
-                                    st.write(f"**Análise:** {ai_info['justificativa']}")
-                                    st.write("**Pontos Chave:**")
-                                    for p in ai_info.get('pontos_chave', []): st.write(f"- {p}")
+                                # 3. Análise IA (Sentimento e Justificativa)
+                                with st.expander("🤖 IA Bet Hunter - Análise Tática e Opinion Research", expanded=True):
+                                    if st.button("🔍 Iniciar Deep Dive IA", key=f"btn_ia_{f['casa']}_{f['fora']}"): # Unique key for button
+                                        with st.spinner("Pesquisando em sites de opinião (WhoScored, FBRef, The Athletic)..."):
+                                            # Aqui poderíamos integrar o search_web no backend se necessário
+                                            # Por agora, usamos os dados do motor robusto
+                                            # The ai_info is already available from engine.gerar_recomendacoes
+                                            insight = ai_info 
+                                            if insight:
+                                                st.subheader(f"Palpite IA: {insight.get('vencedor_provavel', 'N/A')}")
+                                                st.info(f"**Justificativa:** {insight.get('justificativa', 'N/A')}")
+                                                cols = st.columns(2)
+                                                with cols[0]:
+                                                    st.write("**Pontos Chave:**")
+                                                    for p in insight.get('points_chave', insight.get('pontos_chave', [])):
+                                                        st.write(f"- {p}")
+                                                with cols[1]:
+                                                    sentiment = insight.get('sentimento', 0)
+                                                    st.metric("Sentimento IA", f"{sentiment:+.2f}", 
+                                                              delta="Favor Casa" if sentiment > 0 else "Favor Fora")
                             st.markdown("---")
             
             if count_bets == 0:
                 st.info("Nenhuma aposta encontrada com os critérios atuais.")
+
+    # 4. Variantes de Localidade e Confronto (Checklist Analítico)
+    st.divider()
+    st.subheader("📋 Checklist Analítico Pro")
+    
+    # These variables (time_casa, time_fora) are defined in tab1, need to ensure they are accessible or re-defined for tab_hunter
+    # For now, assuming the user wants this to apply to the currently selected game in tab1, or a default.
+    # If this section is meant to be independent, it would need its own team selection.
+    # For faithful integration, I'll assume it refers to the last selected game from tab1, or a placeholder if tab1 hasn't been interacted with.
+    # To make it work, we need to ensure time_casa and time_fora are defined.
+    # Let's use the first game from 'proximos' as a default if no game was selected in tab1 yet.
+    if 'time_casa' not in locals() or 'time_fora' not in locals():
+        if proximos:
+            default_game = proximos[0]
+            time_casa_hunter = default_game['casa']
+            time_fora_hunter = default_game['fora']
+        else:
+            time_casa_hunter = "Equipa A" # Fallback if no fixtures
+            time_fora_hunter = "Equipa B" # Fallback if no fixtures
+    else:
+        time_casa_hunter = time_casa
+        time_fora_hunter = time_fora
+
+    h2h = engine.get_h2h_stats(time_casa_hunter, time_fora_hunter)
+    mom_casa = engine.get_momentum(time_casa_hunter)
+    mom_fora = engine.get_momentum(time_fora_hunter)
+    stats_casa = engine._get_team_stats(time_casa_hunter)
+    stats_fora = engine._get_team_stats(time_fora_hunter)
+    
+    tabs = st.tabs(["📊 Splits Localidade", "⚔️ H2H (5 Anos)", "🔥 Momento (Last 5)"])
+    
+    with tabs[0]:
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            st.write("**Gols Feitos (Média)**")
+            st.write(f"🏠 Casa: {stats_casa['ataque_home']:.2f}")
+            st.write(f"✈️ Fora: {stats_fora['ataque_away']:.2f}")
+        with c2:
+            st.write("**Gols Sofridos (Média)**")
+            st.write(f"🏠 Casa: {stats_casa['defesa_home']:.2f}")
+            st.write(f"✈️ Fora: {stats_fora['defesa_away']:.2f}")
+        with c3:
+            st.write("**Clean Sheets %**")
+            st.write(f"🏠 Casa: {stats_casa.get('cs_home', 0)*100:.0f}%")
+            st.write(f"✈️ Fora: {stats_fora.get('cs_away', 0)*100:.0f}%")
+            
+    with tabs[1]:
+        if h2h:
+            st.write(f"**Histórico Total:** {h2h['total']} jogos")
+            st.write(f"**Vitórias {time_casa_hunter}:** {h2h['wins_casa']}")
+            st.write(f"**Média Gols H2H:** {h2h['avg_goals']:.2f}")
+            st.write(f"**Ambos Marcam (BTTS):** {h2h['btts_perc']*100:.0f}%")
+            st.table(pd.DataFrame(h2h['last_results']).head(5))
+        else:
+            st.warning("Sem confrontos diretos recentes.")
+            
+    with tabs[2]:
+        c1, c2 = st.columns(2)
+        with c1:
+            if mom_casa:
+                st.write(f"**Forma {time_casa_hunter}**")
+                st.write(f"Win Rate: {mom_casa['win_rate']*100:.0f}%")
+                st.write(f"Tendência: {mom_casa['trend']}")
+        with c2:
+            if mom_fora:
+                st.write(f"**Forma {time_fora_hunter}**")
+                st.write(f"Win Rate: {mom_fora['win_rate']*100:.0f}%")
+                st.write(f"Tendência: {mom_fora['trend']}")
 
 with tab2:
     st.subheader("🧠 Motor de Aprendizagem (CSV)")

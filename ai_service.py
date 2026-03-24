@@ -42,18 +42,36 @@ class AIService:
             return response.json()['choices'][0]['message']['content']
         return None
 
+    def _get_external_insights(self, casa, fora):
+        try:
+            with open("external_insights.json", "r") as f:
+                data = json.load(f)
+            fixture = f"{casa} vs {fora}"
+            # Busca em datas ou no Geral
+            insights = []
+            for date, matches in data.items():
+                if fixture in matches: insights.append(matches[fixture])
+            if fixture in data.get("General", {}):
+                insights.append(data["General"][fixture])
+            return " | ".join(insights) if insights else "Nenhuma opinião externa recente encontrada."
+        except: return ""
+
     def analise_partida(self, casa, fora, context=""):
         if not self.gemini_keys and not self.groq_key:
             return {"sentimento": 0.0, "justificativa": "Aguardando configuração de API Secrets.", "pontos_chave": ["N/A"], "vencedor_provavel": "N/A"}
 
+        external = self._get_external_insights(casa, fora)
+        
         prompt = f"""
         Você é um analista especialista em apostas da Premier League.
         Analise o confronto: {casa} vs {fora}.
-        Contexto Adicional: {context}
+        Contexto Estatístico (H2H/Forma): {context}
+        Opiniões Externas (Experts): {external}
+        
         Retorne APENAS um JSON:
         {{
             "sentimento": valor_entre_-1_e_1,
-            "justificativa": "string",
+            "justificativa": "string resumindo os dados + opiniões de experts",
             "pontos_chave": ["ponto 1", "ponto 2"],
             "vencedor_provavel": "string"
         }}
