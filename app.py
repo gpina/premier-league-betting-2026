@@ -22,6 +22,11 @@ def carregar_contexto():
             return json.load(f)
     return {}
 
+def salvar_contexto(novo_contexto):
+    caminho = "qualitative_context.json"
+    with open(caminho, 'w', encoding='utf-8') as f:
+        json.dump(novo_contexto, f, indent=4, ensure_ascii=False)
+
 contexto = carregar_contexto()
 last_upd = contexto.get('last_update', 'N/A')
 
@@ -50,7 +55,7 @@ st.title("🏆 Premier League: Caderno Estratégico AI")
 st.markdown(f"**Modo:** Analista Tático Progressivo | **Status:** Online | **Contexto:** {last_upd}")
 
 # --- TABS ---
-tab1, tab2, tab3 = st.tabs(["📊 Prognósticos & Fadiga", "🧠 Aprendizagem (CSV)", "📜 Histórico"])
+tab1, tab2, tab3, tab4 = st.tabs(["📊 Prognósticos & Fadiga", "🧠 Aprendizagem (CSV)", "📜 Histórico", "🔧 Admin Contexto"])
 
 with tab1:
     st.subheader("⚽ Previsão de Próximos Confrontos")
@@ -171,3 +176,39 @@ with tab3:
     if not previsoes.empty:
         st.write("**🔮 Previsões a Aguardar Resultado**")
         st.dataframe(previsoes, use_container_width=True)
+
+with tab4:
+    st.subheader("🔧 Gestão de Contexto Tático (Admin)")
+    
+    # Proteção por Senha (Definir em Settings -> Secrets no Streamlit Cloud)
+    # Se não houver segredo definido, o padrão é 'admin123'
+    senha_correta = st.secrets.get("admin_password", "admin123")
+    
+    col_lock, col_auth = st.columns([1, 3])
+    with col_lock:
+        st.write("🔐 **Acesso Restrito**")
+    with col_auth:
+        senha_inserida = st.text_input("Introduza a senha para editar", type="password")
+
+    if senha_inserida == senha_correta:
+        st.success("Autenticado! Pode atualizar o contexto qualitativo.")
+        
+        time_edit = st.selectbox("Selecionar Equipa", sorted(engine.ratings.keys()))
+        
+        col_ed1, col_ed2 = st.columns(2)
+        current_info = contexto.get(time_edit, {})
+        
+        les_str = col_ed1.text_area("Lesionados (um por linha)", value="\n".join(current_info.get('lesionados', [])))
+        sus_str = col_ed2.text_area("Suspensos (um por linha)", value="\n".join(current_info.get('suspensos', [])))
+        
+        if st.button("💾 Gravar Alterações para " + time_edit):
+            contexto[time_edit] = {
+                "lesionados": [x.strip() for x in les_str.split("\n") if x.strip()],
+                "suspensos": [x.strip() for x in sus_str.split("\n") if x.strip()]
+            }
+            contexto['last_update'] = datetime.now().strftime("%Y-%m-%d %H:%M")
+            salvar_contexto(contexto)
+            st.toast(f"Dados de {time_edit} atualizados com sucesso!")
+            st.rerun()
+    elif senha_inserida:
+        st.error("Senha incorreta. Acesso negado.")
