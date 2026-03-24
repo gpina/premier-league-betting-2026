@@ -38,6 +38,11 @@ class EngineAprendizagem:
         self.media_gols_home = self.df['FTHG'].mean()
         self.media_gols_away = self.df['FTAG'].mean()
 
+    def _get_team_stats(self, team):
+        # Retorna estatísticas base ou defaults se o time não existir no CSV
+        default = {'ataque_home': 1.0, 'defesa_home': 1.2, 'ataque_away': 0.8, 'defesa_away': 1.5}
+        return self.team_stats.get(team, default)
+
     def calcular_probabilidade(self, casa, fora, fadiga_casa=False, fadiga_fora=False):
         # Combina o Rating (Aprendizagem) com Poisson (Estatística)
         rating_casa = self.ratings.get(casa, 1.0)
@@ -47,23 +52,28 @@ class EngineAprendizagem:
         if fadiga_casa: rating_casa *= 0.90
         if fadiga_fora: rating_fora *= 0.90
         
+        stats_casa = self._get_team_stats(casa)
+        stats_fora = self._get_team_stats(fora)
+        
         # Cálculo Poisson Base
-        lambda_home = (self.team_stats[casa]['ataque_home'] * self.team_stats[fora]['defesa_away']) / self.media_gols_home
-        lambda_away = (self.team_stats[fora]['ataque_away'] * self.team_stats[casa]['defesa_home']) / self.media_gols_away
+        lambda_home = (stats_casa['ataque_home'] * stats_fora['defesa_away']) / self.media_gols_home
+        lambda_away = (stats_fora['ataque_away'] * stats_casa['defesa_home']) / self.media_gols_away
         
         prob_matrix = np.outer(poisson.pmf(range(7), lambda_home), poisson.pmf(range(7), lambda_away))
         p_home_poisson = np.sum(np.triu(prob_matrix, 1).T)
         
         # Média ponderada entre Rating (ELO) e Poisson
-        # Se Rating Casa > Fora, a probabilidade aumenta
         diff = (rating_casa - rating_fora) * 0.2
         prob_final = p_home_poisson + diff
         
         return min(0.95, max(0.05, prob_final))
 
     def calcular_mercados_adicionais(self, casa, fora, fadiga_casa=False, fadiga_fora=False):
-        lambda_home = (self.team_stats[casa]['ataque_home'] * self.team_stats[fora]['defesa_away']) / self.media_gols_home
-        lambda_away = (self.team_stats[fora]['ataque_away'] * self.team_stats[casa]['defesa_home']) / self.media_gols_away
+        stats_casa = self._get_team_stats(casa)
+        stats_fora = self._get_team_stats(fora)
+        
+        lambda_home = (stats_casa['ataque_home'] * stats_fora['defesa_away']) / self.media_gols_home
+        lambda_away = (stats_fora['ataque_away'] * stats_casa['defesa_home']) / self.media_gols_away
         
         # Ajuste por Fadiga nos gols esperados
         if fadiga_casa: lambda_home *= 0.9
