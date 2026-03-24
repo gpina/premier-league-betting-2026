@@ -78,8 +78,14 @@ class EngineAprendizagem:
         lambda_home = (stats_casa['ataque_home'] * stats_fora['defesa_away']) / self.media_gols_home
         lambda_away = (stats_fora['ataque_away'] * stats_casa['defesa_home']) / self.media_gols_away
         
+        # Probabilidades de placar (até 6 gols)
         prob_matrix = np.outer(poisson.pmf(range(7), lambda_home), poisson.pmf(range(7), lambda_away))
-        p_home_poisson = np.sum(np.triu(prob_matrix, 1).T)
+        
+        # Correção: i > j é vitória da casa (LOWER triangle)
+        # i < j é vitória do visitante (UPPER triangle)
+        p_home_poisson = np.sum(np.tril(prob_matrix, -1))
+        p_draw = np.sum(np.diag(prob_matrix))
+        p_away = np.sum(np.triu(prob_matrix, 1))
         
         # Média ponderada entre Rating (ELO) e Poisson
         diff = (rating_casa - rating_fora) * 0.2
