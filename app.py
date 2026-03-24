@@ -69,6 +69,11 @@ risco_max = st.sidebar.slider("Risco Máximo por Aposta (%)", 1, 5, 2)
 
 # --- CABEÇALHO ---
 st.title("🏆 Premier League: Caderno Estratégico AI")
+st.markdown("""
+<div style='background-color: #e6fffa; border: 1px solid #38b2ac; color: #234e52; padding: 10px; border-radius: 8px; margin-bottom: 20px; text-align: center; font-weight: bold;'>
+    🚀 DASHBOARD V2.0 PRO: ACTIVADO (Filtros Avançados e Gráficos Plotly)
+</div>
+""", unsafe_allow_html=True)
 st.markdown(f"**Modo:** Analista Tático Progressivo | **Status:** Online | **Contexto:** {last_upd}")
 
 # Obter Odds ao Vivo (Opcional - Requer Chave nos Secrets)
