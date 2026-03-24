@@ -52,8 +52,8 @@ class EngineAprendizagem:
         p_casa = [self.poisson_prob(i, xg_c) for i in range(6)]
         p_fora = [self.poisson_prob(j, xg_f) for j in range(6)]
         
-        # BTTS: 1 - (Prob Casa 0 * Prob Fora 0)
-        prob_btts = 1 - (self.poisson_prob(0, xg_c) * self.poisson_prob(0, xg_f))
+        # BTTS: (1 - Prob Casa 0) * (1 - Prob Fora 0)
+        prob_btts = (1 - self.poisson_prob(0, xg_c)) * (1 - self.poisson_prob(0, xg_f))
         
         # Over 2.5: 1 - Sum(Scores com total <= 2)
         # Scores <= 2: (0,0), (1,0), (0,1), (2,0), (0,2), (1,1)

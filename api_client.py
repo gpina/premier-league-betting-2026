@@ -43,11 +43,50 @@ class FootballDataClient:
             print(f"Erro ao carregar CSV gratuito: {e}")
             return pd.DataFrame()
 
-    def get_mock_next_fixtures(self):
+    def get_live_odds(self, api_key):
         """
-        Como o CSV gratuito foca em resultados passados, 
-        usamos um mock para os próximos jogos até integrarmos um scraper de calendário.
+        Busca odds reais da 'The Odds API' para a Premier League.
         """
+        if not api_key: return []
+        
+        url = f"https://api.the-odds-api.com/v4/sports/soccer_england_league1/odds/" # Lembrete: Premier League pode ser 'soccer_epl' ou similar
+        params = {
+            'apiKey': api_key,
+            'regions': 'eu', # Europa
+            'markets': 'h2h,totals,btts',
+            'oddsFormat': 'decimal'
+        }
+        
+        try:
+            # Nota: Corrigir o sport key para 'soccer_epl'
+            url = url.replace('soccer_england_league1', 'soccer_epl')
+            response = requests.get(url, params=params)
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            print(f"Erro ao buscar odds ao vivo: {e}")
+            return []
+
+    def get_mock_next_fixtures(self, live_data=None):
+        """
+        Retorna os próximos jogos. Se live_data (da API) existir, converte-o.
+        """
+        if live_data:
+            fixtures = []
+            for match in live_data[:10]: # Limitar aos próximos 10
+                # Extrair odds do primeiro bookmaker (ex: Bet365 ou Avg)
+                h2h = next((m for m in match['bookmakers'] if m['key'] == 'bet365'), match['bookmakers'][0])
+                odds = h2h['markets'][0]['outcomes']
+                
+                fixtures.append({
+                    "data": match['commence_time'].split('T')[0],
+                    "casa": match['home_team'],
+                    "fora": match['away_team'],
+                    "odd": next(o['price'] for o in odds if o['name'] == match['home_team'])
+                })
+            return fixtures
+
+        # Fallback para Mock se a API falhar ou não houver chave
         return [
             {"data": "2026-03-28", "casa": "Arsenal", "fora": "Everton", "odd": 1.45},
             {"data": "2026-03-28", "casa": "Man City", "fora": "Chelsea", "odd": 1.62},
