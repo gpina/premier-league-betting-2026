@@ -88,8 +88,14 @@ class FootballDataClient:
 
         # Fallback para Mock se a API falhar ou não houver chave
         return [
-            {"data": "2026-03-28", "casa": "Arsenal", "fora": "Everton", "odd": 1.45},
-            {"data": "2026-03-28", "casa": "Man City", "fora": "Chelsea", "odd": 1.62},
-            {"data": "2026-03-29", "casa": "Liverpool", "fora": "Brentford", "odd": 1.38},
-            {"data": "2026-03-29", "casa": "Aston Villa", "fora": "Tottenham", "odd": 2.25}
+            {"data": "2026-04-10", "casa": "West Ham", "fora": "Wolverhampton", "odd": 2.10},
+            {"data": "2026-04-11", "casa": "Arsenal", "fora": "Bournemouth", "odd": 1.35},
+            {"data": "2026-04-11", "casa": "Brentford", "fora": "Everton", "odd": 1.95},
+            {"data": "2026-04-11", "casa": "Burnley", "fora": "Brighton", "odd": 3.10},
+            {"data": "2026-04-11", "casa": "Liverpool", "fora": "Fulham", "odd": 1.40},
+            {"data": "2026-04-12", "casa": "Sunderland", "fora": "Tottenham", "odd": 4.50},
+            {"data": "2026-04-12", "casa": "Nottingham Forest", "fora": "Aston Villa", "odd": 2.80},
+            {"data": "2026-04-12", "casa": "Crystal Palace", "fora": "Newcastle", "odd": 2.60},
+            {"data": "2026-04-12", "casa": "Chelsea", "fora": "Manchester City", "odd": 3.40},
+            {"data": "2026-04-13", "casa": "Manchester United", "fora": "Leeds United", "odd": 1.65}
         ]
