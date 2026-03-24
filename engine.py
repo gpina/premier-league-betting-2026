@@ -1,92 +1,78 @@
+import pandas as pd
 import numpy as np
-import math
+from scipy.stats import poisson
+import streamlit as st
+from ai_service import AIService
 
 class EngineAprendizagem:
-    """
-    O 'Cérebro' do sistema: Cálculos de probabilidade, Brier Score e ajuste de ratings.
-    """
-    def __init__(self, ratings_iniciais=None):
-        # Ratings base (1.0 = Médio/Neutro)
-        self.ratings = ratings_iniciais if ratings_iniciais else {
-            "Man City": 1.45, "Arsenal": 1.40, "Liverpool": 1.35, "Chelsea": 1.20,
-            "Everton": 0.95, "Brentford": 1.05, "Tottenham": 1.25, "Man United": 1.15,
-            "Newcastle": 1.10, "Aston Villa": 1.25
+    def __init__(self, data_path='E0.csv'):
+        self.df = pd.read_csv(data_path)
+        self.df['Date'] = pd.to_datetime(self.df['Date'], dayfirst=True)
+        self.ai = AIService()
+        self._preparar_modelo()
+
+    def _preparar_modelo(self):
+        # Cálculos de força (Poisson)
+        all_teams = pd.concat([self.df['HomeTeam'], self.df['AwayTeam']]).unique()
+        self.team_stats = {}
+        for team in all_teams:
+            home_games = self.df[self.df['HomeTeam'] == team]
+            away_games = self.df[self.df['AwayTeam'] == team]
+            self.team_stats[team] = {
+                'ataque_home': home_games['FTHG'].mean(),
+                'defesa_home': home_games['FTAG'].mean(),
+                'ataque_away': away_games['FTAG'].mean(),
+                'defesa_away': away_games['FTHG'].mean()
+            }
+        self.media_gols_home = self.df['FTHG'].mean()
+        self.media_gols_away = self.df['FTAG'].mean()
+
+    def prever_partida(self, home, away):
+        if home not in self.team_stats or away not in self.team_stats:
+            return None
+        
+        lambda_home = (self.team_stats[home]['ataque_home'] * self.team_stats[away]['defesa_away']) / self.media_gols_home
+        lambda_away = (self.team_stats[away]['ataque_away'] * self.team_stats[home]['defesa_home']) / self.media_gols_away
+        
+        # Probabilidades de placar (até 6 gols)
+        prob_matrix = np.outer(poisson.pmf(range(7), lambda_home), poisson.pmf(range(7), lambda_away))
+        
+        p_home = np.sum(np.triu(prob_matrix, 1).T)
+        p_draw = np.sum(np.diag(prob_matrix))
+        p_away = np.sum(np.tril(prob_matrix, -1).T)
+        
+        # Mercados Adicionais
+        prob_btts = sum(prob_matrix[i, j] for i in range(1, 7) for j in range(1, 7))
+        prob_over15 = 1 - (prob_matrix[0,0] + prob_matrix[0,1] + prob_matrix[1,0])
+        prob_over25 = 1 - np.sum(np.array([prob_matrix[i,j] for i in range(7) for j in range(7) if i+j <= 2]))
+        prob_over35 = 1 - np.sum(np.array([prob_matrix[i,j] for i in range(7) for j in range(7) if i+j <= 3]))
+        
+        return {
+            '1': p_home, 'X': p_draw, '2': p_away,
+            'BTTS': prob_btts, 'Over1.5': prob_over15, 'Over2.5': prob_over25, 'Over3.5': prob_over35,
+            '1X': p_home + p_draw, 'X2': p_draw + p_away, '12': p_home + p_away
         }
-        self.fator_aprendizagem = 0.05
-        self.media_golos_liga = 2.8 # Média base da Premier League
 
-    def calcular_probabilidade(self, casa, fora, fadiga_casa=False, fadiga_fora=False):
-        """Calcula a probabilidade de vitória da casa baseada nos ratings e fadiga."""
-        r_casa = self.ratings.get(casa, 1.0)
-        r_fora = self.ratings.get(fora, 1.0)
-        if fadiga_casa: r_casa *= 0.90
-        if fadiga_fora: r_fora *= 0.90
-        return r_casa / (r_casa + r_fora)
-
-    def estimar_xG(self, casa, fora, fadiga_casa=False, fadiga_fora=False):
-        """Estima os golos esperados (xG) para cada equipa."""
-        r_casa = self.ratings.get(casa, 1.0)
-        r_fora = self.ratings.get(fora, 1.0)
+    def gerar_recomendacoes(self, fixture, use_ai=False):
+        casa, fora = fixture['Home'], fixture['Away']
+        probs = self.prever_partida(casa, fora)
+        if not probs: return []
         
-        # Fator Casa (Geralmente 1.2x mais golos em casa na PL)
-        base_casa = (self.media_golos_liga / 2) * 1.1
-        base_fora = (self.media_golos_liga / 2) * 0.9
-
-        xg_casa = base_casa * (r_casa / r_fora)
-        xg_fora = base_fora * (r_fora / r_casa)
+        # Se usar IA, buscar sentimento tático
+        ai_insight = None
+        if use_ai:
+            ai_insight = self.ai.analise_partida(casa, fora)
+            # O sentimento IA (-1 a 1) ajusta a confiança base
+            adj = (ai_insight['sentimento'] * 0.1) # Ajuste de até 10%
+            probs['1'] = min(0.99, max(0.01, probs['1'] + adj))
+            probs['2'] = min(0.99, max(0.01, probs['2'] - adj))
         
-        if fadiga_casa: xg_casa *= 0.85
-        if fadiga_fora: xg_fora *= 0.85
+        recoms = []
+        # Lógica de Valor (Simplificada: Se prob > 60%, recomendar)
+        if probs['1'] > 0.65: recoms.append({'mercado': 'Vencedor: ' + casa, 'confianca': probs['1'], 'tipo': 'Principal'})
+        if probs['2'] > 0.65: recoms.append({'mercado': 'Vencedor: ' + fora, 'confianca': probs['2'], 'tipo': 'Principal'})
+        if probs['BTTS'] > 0.68: recoms.append({'mercado': 'Ambas Marcam: Sim', 'confianca': probs['BTTS'], 'tipo': 'Golos'})
+        if probs['Over2.5'] > 0.65: recoms.append({'mercado': 'Over 2.5 Gols', 'confianca': probs['Over2.5'], 'tipo': 'Golos'})
+        if probs['1X'] > 0.85: recoms.append({'mercado': 'Chance Dupla: ' + casa + ' ou Empate', 'confianca': probs['1X'], 'tipo': 'Segurança'})
         
-        return xg_casa, xg_fora
-
-    def poisson_prob(self, k, lamb):
-        """Cálculo manual de Poisson: (lambda^k * e^-lambda) / k!"""
-        return (lamb**k * math.exp(-lamb)) / math.factorial(k)
-
-    def calcular_mercados_adicionais(self, casa, fora, fadiga_casa=False, fadiga_fora=False):
-        """Calcula Over 2.5 e BTTS usando distribuição de Poisson."""
-        xg_c, xg_f = self.estimar_xG(casa, fora, fadiga_casa, fadiga_fora)
-        
-        # Probabilidade de cada score até 5 golos
-        p_casa = [self.poisson_prob(i, xg_c) for i in range(6)]
-        p_fora = [self.poisson_prob(j, xg_f) for j in range(6)]
-        
-        # BTTS: (1 - Prob Casa 0) * (1 - Prob Fora 0)
-        prob_btts = (1 - self.poisson_prob(0, xg_c)) * (1 - self.poisson_prob(0, xg_f))
-        
-        # Over 2.5: 1 - Sum(Scores com total <= 2)
-        # Scores <= 2: (0,0), (1,0), (0,1), (2,0), (0,2), (1,1)
-        prob_under_25 = 0
-        for i in range(3):
-            for j in range(3 - i):
-                prob_under_25 += self.poisson_prob(i, xg_c) * self.poisson_prob(j, xg_f)
-        
-        prob_over_25 = 1 - prob_under_25
-        return prob_over_25, prob_btts
-
-    def calcular_kelly(self, prob_ia, odd_mercado, banca_total, risco_max_percentual=2):
-        if odd_mercado <= 1: return 0.0, 0.0
-        b = odd_mercado - 1
-        p = prob_ia
-        q = 1 - p
-        f_kelly = (b * p - q) / b
-        f_kelly_ajustado = f_kelly * 0.5
-        percentual_final = min(max(0, f_kelly_ajustado), risco_max_percentual / 100)
-        valor_aposta = percentual_final * banca_total
-        return valor_aposta, f_kelly
-
-    def atualizar_ratings_resultado(self, casa, fora, prev_casa, resultado_final):
-        if casa not in self.ratings: self.ratings[casa] = 1.0
-        if fora not in self.ratings: self.ratings[fora] = 1.0
-        erro = (prev_casa - resultado_final) ** 2
-        if resultado_final == 1 and prev_casa < 0.5:
-            self.ratings[casa] += self.fator_aprendizagem
-            self.ratings[fora] -= self.fator_aprendizagem / 2
-        elif resultado_final != 1 and prev_casa > 0.7:
-            self.ratings[casa] -= self.fator_aprendizagem
-            self.ratings[fora] += self.fator_aprendizagem / 2
-        return erro
-
-    def get_ev(self, prob_ia, odd_mercado):
-        return (prob_ia * odd_mercado) - 1
+        return recoms, ai_insight

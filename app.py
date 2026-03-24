@@ -8,6 +8,8 @@ from engine import EngineAprendizagem
 from database import Database
 from api_client import FootballDataClient
 from datetime import datetime
+from ai_service import AIService
+from simulacao_backtest import executar_backtest
 
 # Configurações Globais
 st.set_page_config(page_title="Premier League Strategic Dashboard 2026", layout="wide", page_icon="⚽")
@@ -31,8 +33,8 @@ contexto = carregar_contexto()
 last_upd = contexto.get('last_update', 'N/A')
 
 # Inicialização do Motor
-ratings_carregados = db.carregar_ratings()
-engine = EngineAprendizagem(ratings_iniciais=ratings_carregados)
+db = Database()
+engine = EngineAprendizagem() # O engine já inicializa o AIService internamente
 
 # Estilo Personalizado (CSS)
 st.markdown("""
@@ -82,7 +84,14 @@ live_data = api_free.get_live_odds(odds_api_key) if odds_api_key else None
 proximos = api_free.get_mock_next_fixtures(live_data)
 
 # --- TABS ---
-tab1, tab2, tab3, tab4 = st.tabs(["📊 Prognósticos & Fadiga", "🧠 Aprendizagem (CSV)", "📜 Histórico", "🔧 Admin Contexto"])
+tab1, tab_hunter, tab2, tab_sim, tab3, tab4 = st.tabs([
+    "📊 Prognósticos & Fadiga", 
+    "🎯 Bet Hunter AI",
+    "🧠 Aprendizagem (CSV)", 
+    "🧪 Simulador Pro",
+    "📜 Histórico", 
+    "🔧 Admin"
+])
 
 with tab1:
     st.subheader("⚽ Previsão de Próximos Confrontos")
@@ -194,6 +203,45 @@ with tab1:
                         st.markdown("<div style='color:gray'>⚖️ Sem Suspensões</div>", unsafe_allow_html=True)
                 st.markdown("<br>", unsafe_allow_html=True)
 
+with tab_hunter:
+    st.subheader("🎯 Bet Hunter: Oportunidades Detectadas por AI")
+    st.markdown("O algoritmo analisa mercados de **Poisson** e cruza com **Sentimento Tático (LLM)** para encontrar valor.")
+    
+    col_h1, col_h2 = st.columns([1, 1])
+    with col_h1:
+        use_llm_hunter = st.checkbox("Ativar Análise Tática Profunda (LLM)", value=True)
+        min_conf = st.slider("Confiança Mínima (%)", 60, 90, 70)
+    
+    if st.button("🔍 Procurar Apostas de Valor"):
+        with st.spinner("IA Analisando Próximos Confrontos..."):
+            count_bets = 0
+            # Usar os próximos jogos carregados
+            for f in proximos[:8]:
+                # Adaptar formato do fixture para o engine
+                fixture_dict = {'Home': f['casa'], 'Away': f['fora']}
+                recoms, ai_info = engine.gerar_recomendacoes(fixture_dict, use_ai=use_llm_hunter)
+                
+                if recoms:
+                    valid_recoms = [r for r in recoms if r['confianca'] * 100 >= min_conf]
+                    if valid_recoms:
+                        with st.container():
+                            st.markdown(f"### {f['casa']} vs {f['fora']}")
+                            cols = st.columns(len(valid_recoms))
+                            for i, rec in enumerate(valid_recoms):
+                                cols[i].metric(rec['mercado'], f"{rec['confianca']:.1%}", rec['tipo'])
+                                count_bets += 1
+                            
+                            if ai_info and use_llm_hunter:
+                                with st.expander("👁️ Ver Justificativa Tática (AI)"):
+                                    st.write(f"**Veredito:** {ai_info['vencedor_provavel']}")
+                                    st.write(f"**Análise:** {ai_info['justificativa']}")
+                                    st.write("**Pontos Chave:**")
+                                    for p in ai_info.get('pontos_chave', []): st.write(f"- {p}")
+                            st.markdown("---")
+            
+            if count_bets == 0:
+                st.info("Nenhuma aposta encontrada com os critérios atuais.")
+
 with tab2:
     st.subheader("🧠 Motor de Aprendizagem (CSV)")
     col_raw, col_learn = st.columns([1, 1])
@@ -240,6 +288,32 @@ with tab2:
                         db.salvar_ratings(engine.ratings)
                         st.success(f"IA Treinada com {count} jogos!")
                         st.rerun()
+
+with tab_sim:
+    st.subheader("🧪 Simulador de Backtest: Performance Real")
+    st.markdown("Simulação das **últimas rodadas** comparando as previsões da IA com os resultados reais.")
+    
+    c1, c2 = st.columns(2)
+    use_ai_sim = c1.toggle("Utilizar Inteligência Artificial (LLM) no Backtest", value=False)
+    rodadas_sim = c2.number_input("Número de Rodadas a Recuar", value=3, min_value=1, max_value=10)
+    
+    if st.button("🚀 Iniciar Simulação de Alta Precisão"):
+        with st.spinner("IA Processando Dados Históricos..."):
+            df_res, win_rate = executar_backtest(rodadas=rodadas_sim, use_ai=use_ai_sim)
+            
+            m1, m2, m3 = st.columns(3)
+            m1.metric("Taxa de Acerto (Win Rate)", f"{win_rate:.1%}")
+            m2.metric("Total de Apostas", len(df_res))
+            m3.metric("Profit/Loss (Units)", f"{df_res['Ganhos'].sum():.2f}")
+            
+            # Gráfico de Lucro Acumulado
+            df_res['Crescimento'] = df_res['Ganhos'].cumsum()
+            fig_sim = px.line(df_res, y='Crescimento', title="Curva de Lucro Acumulado (Simulação)",
+                             labels={'index': 'Aposta', 'Crescimento': 'Unidades'},
+                             markers=True, template="plotly_white")
+            st.plotly_chart(fig_sim, use_container_width=True)
+            
+            st.dataframe(df_res.style.applymap(lambda x: 'color: green' if 'GREEN' in str(x) else ('color: red' if 'RED' in str(x) else ''), subset=['Resultado']), use_container_width=True)
 
 with tab3:
     st.subheader("📜 Evolução da Capacidade Preditiva")
