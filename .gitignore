@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv
+venv/
+ENV/
+
+# Streamlit
+.streamlit/
+
+# Database
+# premier_stats.db  # Descomentar se não quiser enviar a base de dados para o Git
+
+# Operating System
+.DS_Store
+Thumbs.db

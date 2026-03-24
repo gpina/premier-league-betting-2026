@@ -1,0 +1,53 @@
+{
+    "Arsenal": {
+        "lesionados": ["William Saliba (Tornozelo)", "Martin Odegaard (Joelho)", "Ben White (Fitness)", "Jurrien Timber"],
+        "suspensos": [],
+        "notas": "Odegaard é a baixa mais sentida na criação."
+    },
+    "Aston Villa": {
+        "lesionados": ["Boubacar Kamara (ACL)", "Youri Tielemans (Tornozelo)", "John McGinn (Pós-cirurgia)", "Matty Cash (Gémeos)"],
+        "suspensos": [],
+        "notas": "Meio-campo muito desfalcado."
+    },
+    "Brighton": {
+        "lesionados": ["Adam Webster (Joelho)", "Stefanos Tzimas (Joelho)"],
+        "suspensos": ["Lewis Dunk (2 jogos)"],
+        "notas": "Dunk é uma perda defensiva enorme."
+    },
+    "Chelsea": {
+        "lesionados": ["Reece James (Hamstring)", "Levi Colwill (Joelho)", "Estêvão Willian (Hamstring)", "Jamie Gittens", "Trevoh Chalobah"],
+        "suspensos": [],
+        "notas": "Muitas baixas na defesa e alas."
+    },
+    "Liverpool": {
+        "lesionados": ["Alisson Becker (Muscular)", "Mohamed Salah (Muscular)", "Isak (Fratura)", "Endo (Tornozelo)", "Bajcetic (Hamstring)"],
+        "suspensos": [],
+        "notas": "Ataque sem Salah e Isak perde 40% de eficácia."
+    },
+    "Man City": {
+        "lesionados": ["Josko Gvardiol (Perna partida)", "Nico O'Reilly (Tornozelo)"],
+        "suspensos": [],
+        "notas": "Gvardiol fora até ao fim da época."
+    },
+    "Man United": {
+        "lesionados": ["Lisandro Martinez", "Matthijs de Ligt", "Patrick Dorgu"],
+        "suspensos": ["Harry Maguire (1 jogo)"],
+        "notas": "Defesa central em crise."
+    },
+    "Tottenham": {
+        "lesionados": ["James Maddison (Cruzados)", "Dejan Kulusevski (Joelho)", "Rodrigo Bentancur", "Destiny Udogie"],
+        "suspensos": [],
+        "notas": "Maddison fora é o maior golpe tático."
+    },
+    "Everton": {
+        "lesionados": [],
+        "suspensos": [],
+        "notas": "Plantel completo para o próximo jogo."
+    },
+    "Brentford": {
+        "lesionados": [],
+        "suspensos": [],
+        "notas": "Sem baixas reportadas."
+    },
+    "last_update": "2026-03-24 14:45"
+}
