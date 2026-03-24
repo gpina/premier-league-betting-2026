@@ -32,9 +32,9 @@ def salvar_contexto(novo_contexto):
 contexto = carregar_contexto()
 last_upd = contexto.get('last_update', 'N/A')
 
-# Inicialização do Motor
+# Inicialização do Motor e Base de Dados
 db = Database()
-engine = EngineAprendizagem() # O engine já inicializa o AIService internamente
+model_engine = EngineAprendizagem()
 
 # Estilo Personalizado (CSS)
 st.markdown("""
@@ -108,11 +108,11 @@ with tab1:
         st.write("📈 **Força Relativa das Equipas**")
         c1, c2 = st.columns(2)
         with c1:
-            st.metric(f"Rating {time_casa}", f"{engine.ratings.get(time_casa, 1.0):.2f}")
-            st.progress(min(engine.ratings.get(time_casa, 1.0) / 2.0, 1.0))
+            st.metric(f"Rating {time_casa}", f"{model_engine.ratings.get(time_casa, 1.0):.2f}")
+            st.progress(min(model_engine.ratings.get(time_casa, 1.0) / 2.0, 1.0))
         with c2:
-            st.metric(f"Rating {time_fora}", f"{engine.ratings.get(time_fora, 1.0):.2f}")
-            st.progress(min(engine.ratings.get(time_fora, 1.0) / 2.0, 1.0))
+            st.metric(f"Rating {time_fora}", f"{model_engine.ratings.get(time_fora, 1.0):.2f}")
+            st.progress(min(model_engine.ratings.get(time_fora, 1.0) / 2.0, 1.0))
         st.markdown("<br>", unsafe_allow_html=True)
         
         # Ajustes Táticos (Fadiga Europeia)
@@ -124,10 +124,10 @@ with tab1:
         odd_mercado = st.number_input("Odd da Casa", value=float(jogo_sel['odd']), step=0.01)
         
         # Cálculos de IA com Fadiga
-        prob_ia = engine.calcular_probabilidade(time_casa, time_fora, fadiga_casa, fadiga_fora)
+        prob_ia = model_engine.calcular_probabilidade(time_casa, time_fora, fadiga_casa, fadiga_fora)
         prob_mercado = 1 / odd_mercado if odd_mercado > 0 else 0
-        ev = engine.get_ev(prob_ia, odd_mercado)
-        valor_aposta, kelly_puro = engine.calcular_kelly(prob_ia, odd_mercado, banca_total, risco_max)
+        ev = model_engine.get_ev(prob_ia, odd_mercado)
+        valor_aposta, kelly_puro = model_engine.calcular_kelly(prob_ia, odd_mercado, banca_total, risco_max)
 
         # Gráfico de Comparação de Probabilidades
         st.write("📊 **Comparação de Probabilidades**")
@@ -161,12 +161,12 @@ with tab1:
     st.subheader("🎯 Mercados Estratégicos (Poisson)")
     col_goal1, col_goal2 = st.columns(2)
     
-    p_over, p_btts = engine.calcular_mercados_adicionais(time_casa, time_fora, fadiga_casa, fadiga_fora)
+    p_over, p_btts = model_engine.calcular_mercados_adicionais(time_casa, time_fora, fadiga_casa, fadiga_fora)
     
     with col_goal1:
         st.markdown(f"**Over 2.5 Golos**")
         odd_over = st.number_input("Odd Over 2.5", value=1.90, step=0.01, key="over")
-        ev_over = engine.get_ev(p_over, odd_over)
+        ev_over = model_engine.get_ev(p_over, odd_over)
         st.metric("Probabilidade", f"{p_over:.1%}", delta=f"{ev_over:.2%}")
         st.progress(p_over)
         if ev_over > 0.05: st.success("🎯 Valor Real no Over!")
@@ -174,7 +174,7 @@ with tab1:
     with col_goal2:
         st.markdown(f"**Ambas Marcam (BTTS)**")
         odd_btts = st.number_input("Odd BTTS Sim", value=1.80, step=0.01, key="btts")
-        ev_btts = engine.get_ev(p_btts, odd_btts)
+        ev_btts = model_engine.get_ev(p_btts, odd_btts)
         st.metric("Probabilidade", f"{p_btts:.1%}", delta=f"{ev_btts:.2%}")
         st.progress(p_btts)
         if ev_btts > 0.05: st.success("⚽ Valor Real no BTTS!")
@@ -219,7 +219,7 @@ with tab_hunter:
             for f in proximos[:8]:
                 # Adaptar formato do fixture para o engine
                 fixture_dict = {'Home': f['casa'], 'Away': f['fora']}
-                recoms, ai_info = engine.gerar_recomendacoes(fixture_dict, use_ai=use_llm_hunter)
+                recoms, ai_info = model_engine.gerar_recomendacoes(fixture_dict, use_ai=use_llm_hunter)
                 
                 if recoms:
                     valid_recoms = [r for r in recoms if r['confianca'] * 100 >= min_conf]
@@ -279,11 +279,11 @@ with tab_hunter:
         time_casa_hunter = time_casa
         time_fora_hunter = time_fora
 
-    h2h = engine.get_h2h_stats(time_casa_hunter, time_fora_hunter)
-    mom_casa = engine.get_momentum(time_casa_hunter)
-    mom_fora = engine.get_momentum(time_fora_hunter)
-    stats_casa = engine._get_team_stats(time_casa_hunter)
-    stats_fora = engine._get_team_stats(time_fora_hunter)
+    h2h = model_engine.get_h2h_stats(time_casa_hunter, time_fora_hunter)
+    mom_casa = model_engine.get_momentum(time_casa_hunter)
+    mom_fora = model_engine.get_momentum(time_fora_hunter)
+    stats_casa = model_engine._get_team_stats(time_casa_hunter)
+    stats_fora = model_engine._get_team_stats(time_fora_hunter)
     
     tabs = st.tabs(["📊 Splits Localidade", "⚔️ H2H (5 Anos)", "🔥 Momento (Last 5)"])
     
@@ -349,9 +349,9 @@ with tab2:
                 with c1:
                     if st.button("Aprender com este Resultado"):
                         res_val = 1.0 if ultimo['golos_casa'] > ultimo['golos_fora'] else (0.5 if ultimo['golos_casa'] == ultimo['golos_fora'] else 0.0)
-                        p_ia = engine.calcular_probabilidade(ultimo['casa'], ultimo['fora'])
-                        erro = engine.atualizar_ratings_resultado(ultimo['casa'], ultimo['fora'], p_ia, res_val)
-                        db.salvar_ratings(engine.ratings)
+                        p_ia = model_engine.calcular_probabilidade(ultimo['casa'], ultimo['fora'])
+                        erro = model_engine.atualizar_ratings_resultado(ultimo['casa'], ultimo['fora'], p_ia, res_val)
+                        db.salvar_ratings(model_engine.ratings)
                         db.registrar_partida(str(ultimo['data']), f"{ultimo['casa']} vs {ultimo['fora']}", ultimo['casa'], ultimo['fora'], float(ultimo['odd_casa']), p_ia, res_val, erro, 0)
                         st.success("IA Evoluída!")
                         st.rerun()
@@ -361,14 +361,13 @@ with tab2:
                         count = 0
                         # Inverter para processar do mais antigo para o mais recente para a aprendizagem ser sequencial correta
                         for _, row in df_recent.iloc[::-1].iterrows():
-                            # Só processar se o jogo ainda não estiver no histórico para evitar duplicação (simplificado por enquanto)
                             res_val = 1.0 if row['golos_casa'] > row['golos_fora'] else (0.5 if row['golos_casa'] == row['golos_fora'] else 0.0)
-                            p_ia = engine.calcular_probabilidade(row['casa'], row['fora'])
-                            erro = engine.atualizar_ratings_resultado(row['casa'], row['fora'], p_ia, res_val)
+                            p_ia = model_engine.calcular_probabilidade(row['casa'], row['fora'])
+                            erro = model_engine.atualizar_ratings_resultado(row['casa'], row['fora'], p_ia, res_val)
                             db.registrar_partida(str(row['data']), f"{row['casa']} vs {row['fora']}", row['casa'], row['fora'], float(row['odd_casa']), p_ia, res_val, erro, 0)
                             count += 1
                         
-                        db.salvar_ratings(engine.ratings)
+                        db.salvar_ratings(model_engine.ratings)
                         st.success(f"IA Treinada com {count} jogos!")
                         st.rerun()
 
@@ -450,7 +449,7 @@ with tab4:
             ```
             """)
         
-        time_edit = st.selectbox("Selecionar Equipa", sorted(engine.ratings.keys()))
+        time_edit = st.selectbox("Selecionar Equipa", sorted(model_engine.ratings.keys()))
         
         col_ed1, col_ed2 = st.columns(2)
         current_info = contexto.get(time_edit, {})
